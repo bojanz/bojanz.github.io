@@ -6,7 +6,7 @@
     <description>Recent content on bojanz.github.io</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 26 Jun 2018 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 25 Jun 2018 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
     
@@ -14,7 +14,7 @@
     <item>
       <title>Rebooting the blog</title>
       <link>https://bojanz.github.io/rebooting-the-blog/</link>
-      <pubDate>Tue, 26 Jun 2018 00:00:00 +0000</pubDate>
+      <pubDate>Mon, 25 Jun 2018 00:00:00 +0000</pubDate>
       
       <guid>https://bojanz.github.io/rebooting-the-blog/</guid>
       <description>Five years ago I relaunched my blog on WordPress. As a Drupal developer I wanted to experience a competing product from the perspective of a regular user. A year later I become the development lead for Drupal Commerce, and my blogging mostly moved to the Drupal Commerce blog, with 15 posts over the past few years. Meanwhile, the desire to try other systems persisted. Our documentation site is powered by Grav nowadays, which had a good skeleton for what we needed to build.</description>
