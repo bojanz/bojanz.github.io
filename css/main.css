@@ -727,8 +727,8 @@ footer small {
     text-align: center;
     margin: 0 0 2em;
 }
-.single-wrap ul, .single-wrap ol {
-    margin: 2em 0;
+.single-wrap ul {
+    margin-left: 2em;
 }
 .single-wrap ul li, .single-wrap ol li {
     margin-bottom: .5em;
