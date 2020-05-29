@@ -17,8 +17,8 @@
       <pubDate>Fri, 29 May 2020 00:00:00 +0000</pubDate>
       
       <guid>https://bojanz.github.io/optional-parameters-go/</guid>
-      <description>Unlike most languages used today, Go doesn&amp;rsquo;t support optional function parameters. This was an intentional decision by the language creators:
-One feature missing from Go is that it does not support default function arguments. This was a deliberate simplification. Experience tells us that defaulted arguments make it too easy to patch over API design flaws by adding more arguments, resulting in too many arguments with interactions that are difficult to disentangle or even understand.</description>
+      <description>Go doesn&amp;rsquo;t support optional function parameters. This was an intentional decision by the language creators:
+One feature missing from Go is that it does not support default function arguments. This was a deliberate simplification. Experience tells us that defaulted arguments make it too easy to patch over API design flaws by adding more arguments, resulting in too many arguments with interactions that are difficult to disentangle or even understand. The lack of default arguments requires more functions or methods to be defined, as one function cannot hold the entire interface, but that leads to a clearer API that is easier to understand.</description>
     </item>
     
     <item>

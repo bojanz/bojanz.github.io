@@ -33,7 +33,7 @@
         <h1>Bojan Živanović</h1>
         
         
-        <p>Drupal contributor.<!-- raw HTML omitted --> <a href="https://drupalcommerce.org">Drupal Commerce</a> Development Lead.</p>
+        <p>Open Sourcerer. eCommerce nerd. Advisor @<a href="https://centarro.io">Centarro</a></p>
         
     </div>
     <nav>
@@ -82,7 +82,7 @@
                 </div>
                 <h1 class="page-title" itemprop="name headline">Optional function parameters in Go</h1>
                 <div itemprop="articleBody">
-                    <p>Unlike most languages used today, Go doesn&rsquo;t support optional function parameters. This was an intentional decision by the language creators:</p>
+                    <p>Go doesn&rsquo;t support optional function parameters. This was an intentional decision by the language creators:</p>
 <p><em>One feature missing from Go is that it does not support default function arguments. This was a deliberate
 simplification. Experience tells us that defaulted arguments make it too easy to patch over API design flaws
 by adding more arguments, resulting in too many arguments with interactions that are difficult to disentangle
@@ -179,7 +179,17 @@ jpeg.Encode(<span style="color:#f92672">&amp;</span>buf, m0, nil)
 </code></pre></div><p>I am not a big fan of this approach. It requires using a pointer to options (which means
 that the options can change underneath us). The caller still has to pass nil, and
 on second read guess what the nil means.</p>
-<h3 id="structs-with-options">Structs with options</h3>
+<p>One way to get around passing nil is to define a default options struct, like <a href="https://github.com/alexedwards/argon2id">alexedwards/argon2id</a> does:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">var DefaultParams <span style="color:#f92672">=</span> <span style="color:#f92672">&amp;</span>Params{
+	Memory:      <span style="color:#ae81ff">64</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1024</span>,
+	Iterations:  <span style="color:#ae81ff">1</span>,
+	Parallelism: <span style="color:#ae81ff">2</span>,
+	SaltLength:  <span style="color:#ae81ff">16</span>,
+	KeyLength:   <span style="color:#ae81ff">32</span>,
+}
+</code></pre></div><p>Then, require it to be passed by the caller, just like bcrypt does:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">hash, err :<span style="color:#f92672">=</span> argon2id.CreateHash(<span style="color:#e6db74">&#34;pa$$word&#34;</span>, argon2id.DefaultParams)
+</code></pre></div><h3 id="structs-with-options">Structs with options</h3>
 <p>Once there is a need to put options on a struct, why not attach the function itself to
 that struct? The jpeg.Encode() function can become a jpeg.Encoder struct:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">type Encoder <span style="color:#66d9ef">struct</span> {
