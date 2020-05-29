@@ -6,10 +6,20 @@
     <description>Recent content on bojanz.github.io</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 03 Mar 2020 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 29 May 2020 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Optional function parameters in Go</title>
+      <link>https://bojanz.github.io/optional-parameters-go/</link>
+      <pubDate>Fri, 29 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://bojanz.github.io/optional-parameters-go/</guid>
+      <description>Unlike most languages used today, Go doesn&amp;rsquo;t support optional function parameters. This was an intentional decision by the language creators:
+One feature missing from Go is that it does not support default function arguments. This was a deliberate simplification. Experience tells us that defaulted arguments make it too easy to patch over API design flaws by adding more arguments, resulting in too many arguments with interactions that are difficult to disentangle or even understand.</description>
+    </item>
     
     <item>
       <title>Stepping down as the Drupal Commerce project lead</title>
