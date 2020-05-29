@@ -193,6 +193,11 @@ func NewEncoder() <span style="color:#f92672">*</span>Encoder {
 }
 
 func (e <span style="color:#f92672">*</span>Encoder) Encode(w io.Writer, m image.Image) error {}
+</code></pre></div><p>The default option can be modified after initializing the struct:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">var buf bytes.Buffer
+encoder :<span style="color:#f92672">=</span> jpeg.NewEncoder()
+encoder.Quality <span style="color:#f92672">=</span> <span style="color:#ae81ff">90</span>
+encoder.Encode(<span style="color:#f92672">&amp;</span>buf, m0)
 </code></pre></div><p>A similar example is my own <a href="https://github.com/bojanz/currency/blob/master/formatter.go#L35">currency.Formatter</a>.</p>
 <p>The benefit of this approach is that the constructor (NewEncoder) can set defaults for the
 various options. The naked options can also be made private (requiring the use of a setter), or
