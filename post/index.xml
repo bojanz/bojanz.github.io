@@ -6,10 +6,17 @@
     <description>Recent content in Posts on bojanz.github.io</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 29 May 2020 00:00:00 +0000</lastBuildDate>
-    
-	<atom:link href="https://bojanz.github.io/post/index.xml" rel="self" type="application/rss+xml" />
-    
+    <lastBuildDate>Fri, 25 Sep 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Developing price and currency handling for Go</title>
+      <link>https://bojanz.github.io/price-currency-handling-go/</link>
+      <pubDate>Fri, 25 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://bojanz.github.io/price-currency-handling-go/</guid>
+      <description>Now that bojanz/currency is listed on Awesome Go, it&amp;rsquo;s a good time to reflect on the ideas that made it a reality. Back in March I started using Go for a few side projects, and I ran into the need to represent and handle currency amounts (prices). After some research I realized that the ecosystem was missing a complete solution.
+What do we need? Let&amp;rsquo;s sketch out our requirements.
+type Amount struct { number decimal currencyCode string } // Methods: NewAmount(), Add, Sub, Mul, Div, Round, Cmp.</description>
+    </item>
     
     <item>
       <title>Optional function parameters in Go</title>

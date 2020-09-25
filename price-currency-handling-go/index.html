@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+
+
+ <html class="no-js"> 
+<head>
+    <title>Developing price and currency handling for Go &middot; bojanz.github.io</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="content-language" content="en-us" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="author" content="Bojan Živanović (bojanz)">
+    <meta name="description" content="">
+    <meta name="generator" content="Hugo 0.75.1" />
+
+    
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" type="text/css" href="https://bojanz.github.io/css/main.css" />
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/xcode.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400italic,400,300,700|Avenir:400" rel="stylesheet" type="text/css">
+    
+</head>
+
+<body>
+    
+    <div class="off-canvas">
+    <figure class="avatar">
+        <img src="https://bojanz.github.io/img/avatar.jpg" title="Bojan Živanović (bojanz)">
+    </figure>
+    <div class="bio">
+        
+        <h1>Bojan Živanović</h1>
+        
+        
+        <p>Open Sourcerer. eCommerce nerd. Advisor @<a href="https://centarro.io">Centarro</a></p>
+        
+    </div>
+    <nav>
+
+        
+
+        
+        <h6>Subscribe</h6>
+        
+
+        <ul>
+            <li><a target="_blank" href="https://bojanz.github.io/index.xml">RSS feed</a></li>
+        </ul>
+
+        
+        <h6>Follow me on</h6>
+        
+
+        <ul>
+        
+            <li><a target="_blank" href="//twitter.com/bojan_zivanovic">Twitter</a></li>
+        
+        </ul>
+    </nav>
+</div>
+
+
+    <div class="site-wrapper">
+        <header>
+	<div class="h-wrap">
+		
+		<h1 class="title"><a href="https://bojanz.github.io/">bojanz.github.io</a></h1>
+		
+		<a class="menu-icon" title="Menu"><span class="lines"></span></a>
+	</div>
+</header>
+        
+        <section class="single-wrap">
+            <article class="single-content" itemscope itemtype="//schema.org/BlogPosting">
+                <div class="feat">
+                    <h5 class="page-date">
+                    <time datetime="" itemprop="datePublished">
+                    25. September 2020
+                    </time>
+                    </h5>
+                </div>
+                <h1 class="page-title" itemprop="name headline">Developing price and currency handling for Go</h1>
+                <div itemprop="articleBody">
+                    <p>Now that <a href="https://github.com/bojanz/currency">bojanz/currency</a> is listed on <a href="https://awesome-go.com/">Awesome Go</a>,
+it&rsquo;s a good time to reflect on the ideas that made it a reality. Back in March I started using Go for a few side projects,
+and I ran into the need to represent and handle currency amounts (prices). After some research I realized that the
+ecosystem was missing a complete solution.</p>
+<h3 id="what-do-we-need">What do we need?</h3>
+<p>Let&rsquo;s sketch out our requirements.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">type Amount <span style="color:#66d9ef">struct</span> {
+	number       decimal
+	currencyCode string
+}
+
+<span style="color:#75715e">// Methods: NewAmount(), Add, Sub, Mul, Div, Round, Cmp...
+</span></code></pre></div><ul>
+<li>A currency amount consists of a decimal number and a currency code.</li>
+<li>Trying to combine or compare amounts of different currencies returns an error.</li>
+<li>Like time.Time, a currency.Amount has value semantics, which means that amounts are immutable. Adding amount A to amount B produces a third amount C instead of modifying B.</li>
+<li>The number and currencyCode are unexported to require usage of the appropriate methods.</li>
+</ul>
+<p>We should be able to get basic information about a currency: numeric code, number of digits
+(used for rounding), and symbol ($, £, €, etc).</p>
+<p>We should be able to format an amount for display, getting &ldquo;$10&rdquo;, &ldquo;10 €&rdquo;, etc.
+Formatting is locale specific, not currency specific (&ldquo;10 €&rdquo; for fr-CH, &ldquo;€ 10&rdquo; for de-CH).</p>
+<h3 id="a-decimal-journey">A decimal journey</h3>
+<p>Our first problem is that Go doesn&rsquo;t have a builtin type for decimal numbers.
+Developers learn early on that <a href="https://husobee.github.io/money/float/2016/09/23/never-use-floats-for-currency.html">floats must never be used</a> instead, because they are imprecise,
+and as amounts are multiplied, divided, rounded and summed up, those imprecisions add up, quickly becoming real business problems.</p>
+<p>An old and common workaround is to store the amount in its minor units (e.g. cents) as an integer,
+representing $5.99 as 599. But every trick has its cost. No amount can have sub-minor-unit precision (e.g. &ldquo;5.884&rdquo;),
+which is needed for certain kinds of products (e.g. selling in bulk) and in certain tax jurisdictions (e.g. EU VAT).
+Handling multiple currencies becomes more difficult, as different currencies have different numbers of decimals (JPY has 0, KWD has 3),
+making it harder to order by amount in the database.</p>
+<p>Luckily, Go has two solid packages that implement decimals in userspace. The first one is <a href="https://github.com/cockroachdb/apd">cockroachdb/apd</a>.
+It is well maintained and fast enough, solving our need. The API is not very friendly:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c"><span style="color:#75715e">// a + b = c
+</span><span style="color:#75715e"></span>c :<span style="color:#f92672">=</span> apd.New(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0</span>)
+ctx :<span style="color:#f92672">=</span> apd.BaseContext.WithPrecision(<span style="color:#ae81ff">16</span>)
+ctx.Add(c, a, b)
+
+<span style="color:#75715e">// round d to 2 decimals.
+</span><span style="color:#75715e"></span>result :<span style="color:#f92672">=</span> apd.New(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0</span>)
+ctx :<span style="color:#f92672">=</span> apd.BaseContext.WithPrecision(<span style="color:#ae81ff">16</span>)
+ctx.Rounding <span style="color:#f92672">=</span> apd.RoundHalfUp
+ctx.Quantize(result, d, <span style="color:#f92672">-</span><span style="color:#ae81ff">2</span>)
+</code></pre></div><p>However, since we have our own methods for arithmetic and comparisons, we can wrap the apd logic, never even exposing
+the underlying implementation to the user. We accept strings, and use them to instantiate the underlying type:</p>
+<pre><code>amount, _ := currency.NewAmount(&quot;20.99&quot;, &quot;USD&quot;)
+taxAmount, _ := amount.Mul(&quot;0.20&quot;)
+// Methods use apd.NewFromString(n) to get a decimal.
+</code></pre><p>This will also serve us well if we decide to switch the underlying decimal implementation, for example to <a href="https://github.com/ericlagergren/decimal">https://github.com/ericlagergren/decimal</a> which is faster but has seen <a href="https://github.com/ericlagergren/decimal/issues/154">instability</a> due to slower maintanance this year.</p>
+<h3 id="where-do-currencies-come-from">Where do currencies come from?</h3>
+<p>Inflation happens, old currencies get deprecated, new currencies get introduced.
+It pays off to generate currency data from an external source, so that new data
+is always one <code>go generate</code> away. Currency codes and their numeric codes
+can be retrieved from <a href="https://www.currency-iso.org/dam/downloads/lists/list_one.xml">ISO</a>. Locale-specific data, such as currency names, symbols,
+formatting rules are taken from <a href="http://cldr.unicode.org/">CLDR</a>, a rare case of the entire industry cooperating on a common problem.</p>
+<p>The problem with CLDR data is that there&rsquo;s megabytes of it, adding to binary sizes and memory usage. Let&rsquo;s try to reduce this weight.</p>
+<p>The first trick is to reduce the number of locales for which data is generated. CLDR has 542 locales, but it is not likely that an application
+will need to format prices in Church Slavic or Esperanto. Chrome uses an allowlist, while we opted for a denylist listing each ignored locale, allowing
+community members to re-include a locale if they end up needing it.</p>
+<p>The second trick is to stop shipping currency names, since they are rarely used on the backend and can be retrieved on the frontend.
+Currencies tend to be identified by their code (USD) or their symbol ($), while currency names are usually left for certain lists in the UI.
+With a few lines of javascript (<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DisplayNames">Intl.DisplayNames</a>), the frontend can retrieve a localized currency name for each code.</p>
+<p>The third trick is to deduplicate locales by parent, relying on the package performing locale fallback.
+If &ldquo;fr-FR&rdquo; and &ldquo;fr&rdquo; have the same data, &ldquo;fr-FR&rdquo; is removed, and the package selects &ldquo;fr&rdquo; instead.</p>
+<p>Finaly, symbols are grouped, to reduce repetition:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c"><span style="color:#e6db74">&#34;CAD&#34;</span><span style="color:#f92672">:</span> {
+	{<span style="color:#e6db74">&#34;CA$&#34;</span>, []string{<span style="color:#e6db74">&#34;en&#34;</span>}},
+	{<span style="color:#e6db74">&#34;$&#34;</span>, []string{<span style="color:#e6db74">&#34;en-CA&#34;</span>, <span style="color:#e6db74">&#34;fr-CA&#34;</span>}},
+	{<span style="color:#e6db74">&#34;$CA&#34;</span>, []string{<span style="color:#e6db74">&#34;fa&#34;</span>, <span style="color:#e6db74">&#34;fr&#34;</span>}},
+	{<span style="color:#e6db74">&#34;C$&#34;</span>, []string{<span style="color:#e6db74">&#34;nl&#34;</span>}},
+},
+</code></pre></div><p>Our <a href="https://github.com/bojanz/currency/blob/master/gen.go">gen.go</a> is 800 lines of scary code, but the result is worth it. The generated <a href="https://github.com/bojanz/currency/blob/master/data.go">data.go</a> is only 30kb, adding around 128kb to binary size.</p>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>We now have an amount struct, formatting data, symbols. The final step is to create a formatter.</p>
+<p>The formatter is about 200 lines of code long and respects locale-specific symbol positioning, grouping and decimal
+separators, group sizes, numbering systems, etc. It has the full <a href="https://github.com/bojanz/currency/blob/master/formatter.go#L40">set of options</a> offered by NumberFormatter APIs in
+programming languages such as PHP, Java, Swift, etc.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">locale :<span style="color:#f92672">=</span> currency.NewLocale(<span style="color:#e6db74">&#34;tr&#34;</span>)
+formatter :<span style="color:#f92672">=</span> currency.NewFormatter(locale)
+amount, _ :<span style="color:#f92672">=</span> currency.NewAmount(<span style="color:#e6db74">&#34;1245.988&#34;</span>, <span style="color:#e6db74">&#34;EUR&#34;</span>)
+fmt.Println(formatter.Format(amount)) <span style="color:#75715e">// €1.245,988
+</span><span style="color:#75715e"></span>
+formatter.MaxDigits <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>
+fmt.Println(formatter.Format(amount)) <span style="color:#75715e">// €1.245,99
+</span><span style="color:#75715e"></span>
+formatter.NoGrouping <span style="color:#f92672">=</span> true
+fmt.Println(formatter.Format(amount)) <span style="color:#75715e">// €1245,99
+</span><span style="color:#75715e"></span>
+formatter.CurrencyDisplay <span style="color:#f92672">=</span> currency.DisplayCode
+fmt.Println(formatter.Format(amount)) <span style="color:#75715e">// EUR 1245,99
+</span><span style="color:#75715e"></span>
+<span style="color:#75715e">// Different numbering system.
+</span><span style="color:#75715e"></span>amount, _ :<span style="color:#f92672">=</span> currency.NewAmount(<span style="color:#e6db74">&#34;1234.59&#34;</span>, <span style="color:#e6db74">&#34;IRR&#34;</span>)
+locale :<span style="color:#f92672">=</span> currency.NewLocale(<span style="color:#e6db74">&#34;fa&#34;</span>)
+formatter :<span style="color:#f92672">=</span> currency.NewFormatter(locale)
+fmt.Println(formatter.Format(amount)) <span style="color:#75715e">// ‎ریال ۱٬۲۳۴٫۵۹
+</span></code></pre></div><h3 id="conclusion">Conclusion</h3>
+<p>With the right approach to data and the right set of constraints, we manage to solve currency handling with minimum cost
+(~2500 lines of code, ~30kb of data). However, the use case would be greatly helped by Go having a decimal type
+built in. I remain hopeful.</p>
+
+                </div>
+                <div class="feat share">
+                    <a href="//twitter.com/share" class="popup">
+                        <span class="icon-twitter"></span>
+                    </a>
+                </div>
+                
+                <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "bojanz" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+                
+                
+                    <a rel="prev" href="https://bojanz.github.io/optional-parameters-go/" id="prev">
+                        &larr; <span class="nav-title nav-title-prev">Older</span>
+                    </a>
+                
+            </article>
+        </section>
+
+        <footer>
+	
+</footer>
+    </div>
+    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://bojanz.github.io/js/main.js"></script>
+
+
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+	(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+	m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+	ga('create', 'UA-16577454-2', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+
+
+<!-- Syntax highlighting -->
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+</body>
+</html>
