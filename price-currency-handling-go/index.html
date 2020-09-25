@@ -130,7 +130,7 @@ the underlying implementation to the user. We accept strings, and use them to in
 <pre><code>amount, _ := currency.NewAmount(&quot;20.99&quot;, &quot;USD&quot;)
 taxAmount, _ := amount.Mul(&quot;0.20&quot;)
 // Methods use apd.NewFromString(n) to get a decimal.
-</code></pre><p>This will also serve us well if we decide to switch the underlying decimal implementation, for example to <a href="https://github.com/ericlagergren/decimal">https://github.com/ericlagergren/decimal</a> which is faster but has seen <a href="https://github.com/ericlagergren/decimal/issues/154">instability</a> due to slower maintanance this year.</p>
+</code></pre><p>This will also serve us well if we decide to switch the underlying decimal implementation, for example to <a href="https://github.com/ericlagergren/decimal">ericlagergren/decimal</a> which is faster but has seen <a href="https://github.com/ericlagergren/decimal/issues/154">instability</a> due to slower maintanance this year.</p>
 <h3 id="where-do-currencies-come-from">Where do currencies come from?</h3>
 <p>Inflation happens, old currencies get deprecated, new currencies get introduced.
 It pays off to generate currency data from an external source, so that new data
