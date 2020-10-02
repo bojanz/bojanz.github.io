@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+
+
+ <html class="no-js"> 
+<head>
+    <title>Increasing http.Server boilerplate &middot; bojanz.github.io</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="content-language" content="en-us" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="author" content="Bojan Živanović (bojanz)">
+    <meta name="description" content="">
+    <meta name="generator" content="Hugo 0.75.1" />
+
+    
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" type="text/css" href="https://bojanz.github.io/css/main.css" />
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/xcode.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400italic,400,300,700|Avenir:400" rel="stylesheet" type="text/css">
+    
+</head>
+
+<body>
+    
+    <div class="off-canvas">
+    <figure class="avatar">
+        <img src="https://bojanz.github.io/img/avatar.jpg" title="Bojan Živanović (bojanz)">
+    </figure>
+    <div class="bio">
+        
+        <h1>Bojan Živanović</h1>
+        
+        
+        <p>Open Sourcerer. eCommerce nerd. Advisor @<a href="https://centarro.io">Centarro</a></p>
+        
+    </div>
+    <nav>
+
+        
+
+        
+        <h6>Subscribe</h6>
+        
+
+        <ul>
+            <li><a target="_blank" href="https://bojanz.github.io/index.xml">RSS feed</a></li>
+        </ul>
+
+        
+        <h6>Follow me on</h6>
+        
+
+        <ul>
+        
+            <li><a target="_blank" href="//twitter.com/bojan_zivanovic">Twitter</a></li>
+        
+        </ul>
+    </nav>
+</div>
+
+
+    <div class="site-wrapper">
+        <header>
+	<div class="h-wrap">
+		
+		<h1 class="title"><a href="https://bojanz.github.io/">bojanz.github.io</a></h1>
+		
+		<a class="menu-icon" title="Menu"><span class="lines"></span></a>
+	</div>
+</header>
+        
+        <section class="single-wrap">
+            <article class="single-content" itemscope itemtype="//schema.org/BlogPosting">
+                <div class="feat">
+                    <h5 class="page-date">
+                    <time datetime="" itemprop="datePublished">
+                    2. October 2020
+                    </time>
+                    </h5>
+                </div>
+                <h1 class="page-title" itemprop="name headline">Increasing http.Server boilerplate</h1>
+                <div itemprop="articleBody">
+                    <p>One great feature of Go is the built-in http.Server. It allows each app to serve HTTP and HTTPS traffic without having to put a reverse proxy such as Nginx in front of it.</p>
+<p>At a glance the API is simple:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">http.ListenAndServe(<span style="color:#e6db74">&#34;:8080&#34;</span>, h)
+</code></pre></div><p>where <em>h</em> is usually a third party router such as <a href="https://github.com/go-chi/chi">Chi</a>. But as always, the devil is in the details.
+Handling these details will require some boilerplate, so let&rsquo;s start writing it.</p>
+<h3 id="production-ready-configuration-timeouts-tls">Production-ready configuration (timeouts, TLS)</h3>
+<p><a href="https://golang.org/src/net/http/server.go?s=97511:97566#L3108">ListenAndServe</a> creates an http.Server and uses it to listen on the given address and serve the given handler:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">func <span style="color:#a6e22e">ListenAndServe</span>(addr string, handler Handler) error {
+	server :<span style="color:#f92672">=</span> <span style="color:#f92672">&amp;</span>Server{Addr: addr, Handler: handler}
+	<span style="color:#66d9ef">return</span> server.ListenAndServe()
+}
+</code></pre></div><p>However, the instantiated http.Server is not production ready. It is missing important timeouts which can lead
+to resource exhaustion. The TLS configuration is optimized neither for speed nor security. All of this is covered in a famous blog post by Cloudflare titled <a href="https://blog.cloudflare.com/exposing-go-on-the-internet/">So you want to expose Go on the Internet</a>.</p>
+<p>So, how does a well configured server look according to Cloudflare?</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">func <span style="color:#a6e22e">NewServer</span>(addr string, handler http.Handler) <span style="color:#f92672">*</span>http.Server {
+	<span style="color:#66d9ef">return</span> <span style="color:#f92672">&amp;</span>http.Server{
+		Addr:    addr,
+		Handler: handler,
+		<span style="color:#75715e">// https://blog.cloudflare.com/exposing-go-on-the-internet/
+</span><span style="color:#75715e"></span>		ReadTimeout:  <span style="color:#ae81ff">5</span> <span style="color:#f92672">*</span> time.Second,
+		WriteTimeout: <span style="color:#ae81ff">10</span> <span style="color:#f92672">*</span> time.Second,
+		IdleTimeout:  <span style="color:#ae81ff">120</span> <span style="color:#f92672">*</span> time.Second,
+		TLSConfig: <span style="color:#f92672">&amp;</span>tls.Config{
+			NextProtos:       []string{<span style="color:#e6db74">&#34;h2&#34;</span>, <span style="color:#e6db74">&#34;http/1.1&#34;</span>},
+			MinVersion:       tls.VersionTLS12,
+			CurvePreferences: []tls.CurveID{tls.CurveP256, tls.X25519},
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+			PreferServerCipherSuites: true,
+		}
+}
+</code></pre></div><p>Usage stays similar:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">server :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:8080&#34;</span>, r)
+server.ListenAndServe()
+</code></pre></div><p>Our next step is to allow the server to (optionally) listen on a systemd socket.</p>
+<h3 id="systemd">Systemd</h3>
+<p>There are two broad ways in which a Go app is deployed: containerized or native.</p>
+<p>A containerized app is put in a container and then deployed to the cloud, which can be anything
+from a Kubernetes setup to an IaaS provider like <a href="https://www.heroku.com/">Heroku</a> or <a href="https://platform.sh/">Platform.sh</a>.<br>
+However, not every deployment needs the complexity that the containerized approach brings.
+One can get very far with a single VPS or dedicated server. I am a strong believer in continuing to support
+the &ldquo;$5 Digital Ocean&rdquo; crowd, especially now that Go has given us extra performance compared to the old PHP days.</p>
+<p>A native deployment usually means Linux, which is nowadays powered by <a href="https://www.digitalocean.com/community/tutorials/systemd-essentials-working-with-services-units-and-the-journal">systemd</a>. Systemd will automatically start our app and bind it to the specified port, restart on failure, and redirect
+logs from stderr to syslog or <a href="https://sematext.com/blog/journald-logging-tutorial/">journald</a>. When redeploying our app, during the 1-2s downtime window, systemd will queue up any incoming requests, ensuring zero downtime deploys.</p>
+<p>This sounds great, but it requires a bit of adaptation on our side. Aside from having to ship two systemd config files
+(a unit file and a socket file), the app also needs to be able to listen on a systemd socket.</p>
+<p>Let&rsquo;s assume that addr defaults to a TCP address such as &ldquo;:8080&rdquo;, but can also
+be set to a systemd socket name such as &ldquo;systemd:myapp-http&rdquo;, preferably through an
+environment variable which can be defined in our unit file.</p>
+<p>With a little help from <a href="github.com/coreos/go-systemd">coreos/go-systemd</a>, a helper is born:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">func <span style="color:#a6e22e">Listen</span>(addr string) (net.Listener, error) {
+	var ln net.Listener
+	<span style="color:#66d9ef">if</span> strings.HasPrefix(addr, <span style="color:#e6db74">&#34;systemd:&#34;</span>) {
+		name :<span style="color:#f92672">=</span> addr[<span style="color:#ae81ff">8</span><span style="color:#f92672">:</span>]
+		listeners, _ :<span style="color:#f92672">=</span> activation.ListenersWithNames()
+		listener, ok :<span style="color:#f92672">=</span> listeners[name]
+		<span style="color:#66d9ef">if</span> <span style="color:#f92672">!</span>ok {
+			<span style="color:#66d9ef">return</span> nil, fmt.Errorf(<span style="color:#e6db74">&#34;listen systemd %s: socket not found&#34;</span>, name)
+		}
+		ln <span style="color:#f92672">=</span> listener[<span style="color:#ae81ff">0</span>]
+	} <span style="color:#66d9ef">else</span> {
+		var err error
+		ln, err <span style="color:#f92672">=</span> net.Listen(<span style="color:#e6db74">&#34;tcp&#34;</span>, addr)
+		<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil {
+			<span style="color:#66d9ef">return</span> nil, err
+		}
+	}
+
+	<span style="color:#66d9ef">return</span> ln, nil
+}
+</code></pre></div><p>Usage now looks like this:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">addr :<span style="color:#f92672">=</span> os.GetEnv(<span style="color:#e6db74">&#34;LISTEN&#34;</span>)
+<span style="color:#66d9ef">if</span> addr <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;&#34;</span> {
+	addr <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;:8080&#34;</span>
+}
+server :<span style="color:#f92672">=</span> NewServer(addr, r)
+ln, err :<span style="color:#f92672">=</span> Listen(addr)
+<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil { 
+	<span style="color:#75715e">// Handle the error.
+</span><span style="color:#75715e"></span>}
+server.Serve(ln)
+</code></pre></div><p>Having to pass addr twice and call Listen() ourselves is a bit tedious.
+Let&rsquo;s define our own Server struct which embeds *http.Server, and move the listener logic there:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">package httpx
+
+type Server <span style="color:#66d9ef">struct</span> {
+	<span style="color:#f92672">*</span>http.Server
+}
+
+func NewServer(addr string, handler http.Handler) <span style="color:#f92672">*</span>Server {}
+
+func (srv <span style="color:#f92672">*</span>Server) Listen() (net.Listener, error) {
+	<span style="color:#75715e">// Same code as before, but now using srv.Addr
+</span><span style="color:#75715e"></span>}
+
+func (srv <span style="color:#f92672">*</span>Server) ListenAndServe() error {
+	ln, err :<span style="color:#f92672">=</span> srv.Listen()
+	<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">return</span> srv.Serve(ln)
+}
+
+func (srv <span style="color:#f92672">*</span>Server) ListenAndServeTLS(certFile, keyFile string) error {
+	ln, err :<span style="color:#f92672">=</span> srv.Listen()
+	<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">return</span> srv.ServeTLS(ln, certFile, keyFile)
+}
+</code></pre></div><p>Usage is now simple again:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">addr :<span style="color:#f92672">=</span> os.GetEnv(<span style="color:#e6db74">&#34;LISTEN&#34;</span>)
+<span style="color:#66d9ef">if</span> addr <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;&#34;</span> {
+	addr <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;:8080&#34;</span>
+}
+server :<span style="color:#f92672">=</span> NewServer(addr, r)
+server.ListenAndServe()
+</code></pre></div><h3 id="tls">TLS</h3>
+<p>Don&rsquo;t we live in an HTTPS world? So far we&rsquo;ve used ListenAndServe and Serve, not ListenAndServeTLS and ServeTLS.
+Can we just add those three missing letters, point to the certificate, modify the port, and call it a day?</p>
+<p>Yes, if we&rsquo;re just serving an API. But if we&rsquo;re serving HTML, we still need both HTTP and HTTPS, otherwise we won&rsquo;t be
+able to visit our URL via the browser without supplying the HTTPS port. The job of the HTTP server is to redirect
+users to the HTTPS resource.</p>
+<p>That redirect logic looks like this:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">type httpRedirectHandler <span style="color:#66d9ef">struct</span>{}
+
+func (h httpRedirectHandler) ServeHTTP(w http.ResponseWriter, r <span style="color:#f92672">*</span>http.Request) {
+	host, _, err :<span style="color:#f92672">=</span> net.SplitHostPort(r.Host)
+	<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil {
+		<span style="color:#75715e">// No port found.
+</span><span style="color:#75715e"></span>		host <span style="color:#f92672">=</span> r.Host
+	}
+	r.URL.Host <span style="color:#f92672">=</span> host
+	r.URL.Scheme <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;https&#34;</span>
+
+	w.Header().Set(<span style="color:#e6db74">&#34;Connection&#34;</span>, <span style="color:#e6db74">&#34;close&#34;</span>)
+	http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+}
+</code></pre></div><p>Each Serve() call is blocking, so the two servers must run in their own goroutines.
+Both goroutines need to complete, and the idiomatic way to do that is using a <a href="https://golang.org/pkg/sync/#WaitGroup">WaitGroup</a>:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">mainServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:443&#34;</span>, r)
+redirectServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:80&#34;</span>, httpRedirectHandler{})
+
+wg :<span style="color:#f92672">=</span> sync.WaitGroup{}
+wg.Add(<span style="color:#ae81ff">2</span>)
+go func() {
+	mainServer.ListenAndServeTLS(certFile, keyFile)
+	wg.Done()
+}()
+go func() {
+	redirectServer.ListenAndServe()
+	wg.Done()
+}()
+
+wg.Wait()
+</code></pre></div><p>There&rsquo;s only one detail missing now: error handling.
+If one of the servers errors out (couldn&rsquo;t bind to addr or load the certificate)
+we want to make sure the other one is imediately stopped, and execution stops.</p>
+<p>Ideally we&rsquo;d get the error from wg.Wait(), but WaitGroup doesn&rsquo;t support that.
+The answer lies in <a href="https://pkg.go.dev/golang.org/x/sync/errgroup">x/sync/errgroup</a>, which builds upon WaitGroup and does just that, in only 60 lines of code.</p>
+<p>Here&rsquo;s our code with error handling:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">mainServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:443&#34;</span>, r)
+redirectServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:80&#34;</span>, httpRedirectHandler{})
+
+g, ctx :<span style="color:#f92672">=</span> errgroup.WithContext(context.Background())
+g.Go(func() error {
+	<span style="color:#66d9ef">if</span> err :<span style="color:#f92672">=</span> mainServer.ListenAndServeTLS(certFile, keyFile); err <span style="color:#f92672">!=</span> http.ErrServerClosed {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">return</span> nil
+})
+g.Go(func() error {
+	<span style="color:#66d9ef">if</span> err :<span style="color:#f92672">=</span> redirectServer.ListenAndServe(); err <span style="color:#f92672">!=</span> http.ErrServerClosed {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">return</span> nil
+})
+go func() {
+	<span style="color:#75715e">// The context is closed if both servers finish, or one of them
+</span><span style="color:#75715e"></span>	<span style="color:#75715e">// errors out, in which case we want to close the other and return.
+</span><span style="color:#75715e"></span>	<span style="color:#f92672">&lt;-</span>ctx.Done()
+	mainServer.Close()
+	redirectServer.Close()
+}()
+
+err :<span style="color:#f92672">=</span> g.Wait() 
+</code></pre></div><p>Note how we distinguish a real error from http.ErrServerClosed.
+We don&rsquo;t want to call the Close() logic for ErrServerClosed because it would interfere with graceful shutdown.</p>
+<p>Our last tweak is more subjective. I dislike the fact that certFile and keyFile are passed
+when starting the server and not when initializing it. I would prefer having one way to start
+the server regardless of whether it uses TLS or not.</p>
+<p>Let&rsquo;s add a few more helpers to httpx:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">func <span style="color:#a6e22e">NewServerTLS</span>(addr string, cert tls.Certificate, handler http.Handler) <span style="color:#f92672">*</span>Server {
+	srv :<span style="color:#f92672">=</span> NewServer(addr, handler)
+	srv.TLSConfig.Certificates <span style="color:#f92672">=</span> []tls.Certificate{cert}
+
+	<span style="color:#66d9ef">return</span> srv
+}
+
+func (srv <span style="color:#f92672">*</span>Server) IsTLS() <span style="color:#66d9ef">bool</span> {
+	<span style="color:#66d9ef">return</span> len(srv.TLSConfig.Certificates) <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">||</span> srv.TLSConfig.GetCertificate <span style="color:#f92672">!=</span> nil
+}
+
+func (srv <span style="color:#f92672">*</span>Server) Start() error {
+	ln, err :<span style="color:#f92672">=</span> srv.Listen()
+	<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">if</span> srv.IsTLS() {
+		ln <span style="color:#f92672">=</span> tls.NewListener(ln, srv.TLSConfig)
+	}
+	<span style="color:#66d9ef">return</span> srv.Serve(ln)
+}
+</code></pre></div><p>Our final implementation now looks like this:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">cert, err :<span style="color:#f92672">=</span> tls.LoadX509KeyPair(certFile, keyFile)
+<span style="color:#66d9ef">if</span> err <span style="color:#f92672">!=</span> nil {
+	<span style="color:#75715e">// Log the error and stop here.
+</span><span style="color:#75715e"></span>}
+mainServer :<span style="color:#f92672">=</span> NewServerTLS(<span style="color:#e6db74">&#34;:443&#34;</span>, cert, r)
+redirectServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:80&#34;</span>, httpRedirectHandler{})
+
+g, ctx :<span style="color:#f92672">=</span> errgroup.WithContext(context.Background())
+g.Go(func() error {
+	<span style="color:#66d9ef">if</span> err :<span style="color:#f92672">=</span> mainServer.Start(); err <span style="color:#f92672">!=</span> http.ErrServerClosed {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">return</span> nil
+})
+g.Go(func() error {
+	<span style="color:#66d9ef">if</span> err :<span style="color:#f92672">=</span> redirectServer.Start(); err <span style="color:#f92672">!=</span> http.ErrServerClosed {
+		<span style="color:#66d9ef">return</span> err
+	}
+	<span style="color:#66d9ef">return</span> nil
+})
+go func() {
+	<span style="color:#75715e">// The context is closed if both servers finish, or one of them
+</span><span style="color:#75715e"></span>	<span style="color:#75715e">// errors out, in which case we want to close the other and return.
+</span><span style="color:#75715e"></span>	<span style="color:#f92672">&lt;-</span>ctx.Done()
+	mainServer.Close()
+	redirectServer.Close()
+}()
+
+err :<span style="color:#f92672">=</span> g.Wait() 
+</code></pre></div><h3 id="conclusion">Conclusion</h3>
+<p>A simple microservice deployed to a known place can keep its code simple. A larger
+and more generic app needs more boilerplate. Luckily, it&rsquo;s a problem that is easy to solve.</p>
+<p>I have gathered the httpx code shared here and published it as <a href="https://github.com/bojanz/httpx">bojanz/httpx</a>.
+The README has working examples of systemd unit and socket files.
+The code itself is only a hundred lines long (without comments), so I encourage those unenthusiastic about introducing another dependency to just copy
+the code into their project. After all, a little copying is better than a little dependency.</p>
+
+                </div>
+                <div class="feat share">
+                    <a href="//twitter.com/share" class="popup">
+                        <span class="icon-twitter"></span>
+                    </a>
+                </div>
+                
+                <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "bojanz" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+                
+                
+                    <a rel="prev" href="https://bojanz.github.io/price-currency-handling-go/" id="prev">
+                        &larr; <span class="nav-title nav-title-prev">Older</span>
+                    </a>
+                
+            </article>
+        </section>
+
+        <footer>
+	
+</footer>
+    </div>
+    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://bojanz.github.io/js/main.js"></script>
+
+
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+	(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+	m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+	ga('create', 'UA-16577454-2', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+
+
+<!-- Syntax highlighting -->
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+</body>
+</html>

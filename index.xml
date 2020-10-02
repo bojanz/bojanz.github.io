@@ -6,7 +6,18 @@
     <description>Recent content on bojanz.github.io</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 25 Sep 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Fri, 02 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Increasing http.Server boilerplate</title>
+      <link>https://bojanz.github.io/increasing-http-server-boilerplate-go/</link>
+      <pubDate>Fri, 02 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://bojanz.github.io/increasing-http-server-boilerplate-go/</guid>
+      <description>One great feature of Go is the built-in http.Server. It allows each app to serve HTTP and HTTPS traffic without having to put a reverse proxy such as Nginx in front of it.
+At a glance the API is simple:
+http.ListenAndServe(&amp;#34;:8080&amp;#34;, h) where h is usually a third party router such as Chi. But as always, the devil is in the details. Handling these details will require some boilerplate, so let&amp;rsquo;s start writing it.</description>
+    </item>
+    
     <item>
       <title>Developing price and currency handling for Go</title>
       <link>https://bojanz.github.io/price-currency-handling-go/</link>
