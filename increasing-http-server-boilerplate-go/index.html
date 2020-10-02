@@ -137,7 +137,7 @@ logs from stderr to syslog or <a href="https://sematext.com/blog/journald-loggin
 <p>Let&rsquo;s assume that <em>addr</em> defaults to a TCP address such as &ldquo;:8080&rdquo;, but can also
 be set to a systemd socket name such as &ldquo;systemd:myapp-http&rdquo;, preferably through an
 environment variable which can be defined in our unit file.</p>
-<p>With a little help from <a href="github.com/coreos/go-systemd">coreos/go-systemd</a>, a helper is born:</p>
+<p>With a little help from <a href="https://github.com/coreos/go-systemd">coreos/go-systemd</a>, a helper is born:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">func <span style="color:#a6e22e">Listen</span>(addr string) (net.Listener, error) {
 	var ln net.Listener
 	<span style="color:#66d9ef">if</span> strings.HasPrefix(addr, <span style="color:#e6db74">&#34;systemd:&#34;</span>) {
