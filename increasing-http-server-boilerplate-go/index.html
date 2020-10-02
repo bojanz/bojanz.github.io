@@ -245,7 +245,7 @@ go func() {
 wg.Wait()
 </code></pre></div><p>There&rsquo;s only one detail missing now: error handling.
 If one of the servers errors out (couldn&rsquo;t bind to addr or load the certificate)
-we want to make sure the other one is imediately stopped, and execution stops.</p>
+we want to make sure the other one is immediately stopped, and execution stops.</p>
 <p>Ideally we&rsquo;d get the error from <em>wg.Wait</em>, but it doesn&rsquo;t support that.
 The answer lies in <a href="https://pkg.go.dev/golang.org/x/sync/errgroup">x/sync/errgroup</a>, which builds upon WaitGroup and does just that, in only 60 lines of code.</p>
 <p>Here&rsquo;s our code with error handling:</p>
