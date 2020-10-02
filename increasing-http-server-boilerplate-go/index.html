@@ -134,7 +134,7 @@ the &ldquo;$5 Digital Ocean&rdquo; crowd, especially now that Go has given us ex
 logs from stderr to syslog or <a href="https://sematext.com/blog/journald-logging-tutorial/">journald</a>. When redeploying our app, during the 1-2s downtime window, systemd will queue up any incoming requests, ensuring zero downtime deploys.</p>
 <p>This sounds great, but it requires a bit of adaptation on our side. Aside from having to ship two systemd config files
 (a unit file and a socket file), the app also needs to be able to listen on a systemd socket.</p>
-<p>Let&rsquo;s assume that addr defaults to a TCP address such as &ldquo;:8080&rdquo;, but can also
+<p>Let&rsquo;s assume that <em>addr</em> defaults to a TCP address such as &ldquo;:8080&rdquo;, but can also
 be set to a systemd socket name such as &ldquo;systemd:myapp-http&rdquo;, preferably through an
 environment variable which can be defined in our unit file.</p>
 <p>With a little help from <a href="github.com/coreos/go-systemd">coreos/go-systemd</a>, a helper is born:</p>
@@ -169,8 +169,8 @@ ln, err :<span style="color:#f92672">=</span> Listen(addr)
 	<span style="color:#75715e">// Handle the error.
 </span><span style="color:#75715e"></span>}
 server.Serve(ln)
-</code></pre></div><p>Having to pass addr twice and call Listen() ourselves is a bit tedious.
-Let&rsquo;s define our own Server struct which embeds *http.Server, and move the listener logic there:</p>
+</code></pre></div><p>Having to pass <em>addr</em> twice and call <em>Listen()</em> ourselves is a bit tedious.
+Let&rsquo;s define our own Server struct which embeds <em>*http.Server</em>, and move the listener logic there:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">package httpx
 
 type Server <span style="color:#66d9ef">struct</span> {
@@ -206,7 +206,7 @@ func (srv <span style="color:#f92672">*</span>Server) ListenAndServeTLS(certFile
 server :<span style="color:#f92672">=</span> NewServer(addr, r)
 server.ListenAndServe()
 </code></pre></div><h3 id="tls">TLS</h3>
-<p>Don&rsquo;t we live in an HTTPS world? So far we&rsquo;ve used ListenAndServe and Serve, not ListenAndServeTLS and ServeTLS.
+<p>Don&rsquo;t we live in an HTTPS world? So far we&rsquo;ve used <em>ListenAndServe</em> and <em>Serve</em>, not <em>ListenAndServeTLS</em> and <em>ServeTLS</em>.
 Can we just add those three missing letters, point to the certificate, modify the port, and call it a day?</p>
 <p>Yes, if we&rsquo;re just serving an API. But if we&rsquo;re serving HTML, we still need both HTTP and HTTPS, otherwise we won&rsquo;t be
 able to visit our URL via the browser without supplying the HTTPS port. The job of the HTTP server is to redirect
@@ -226,7 +226,7 @@ func (h httpRedirectHandler) ServeHTTP(w http.ResponseWriter, r <span style="col
 	w.Header().Set(<span style="color:#e6db74">&#34;Connection&#34;</span>, <span style="color:#e6db74">&#34;close&#34;</span>)
 	http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
 }
-</code></pre></div><p>Each Serve() call is blocking, so the two servers must run in their own goroutines.
+</code></pre></div><p>Each <em>Serve</em> call is blocking, so the two servers must run in their own goroutines.
 Both goroutines need to complete, and the idiomatic way to do that is using a <a href="https://golang.org/pkg/sync/#WaitGroup">WaitGroup</a>:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">mainServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:443&#34;</span>, r)
 redirectServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:80&#34;</span>, httpRedirectHandler{})
@@ -246,7 +246,7 @@ wg.Wait()
 </code></pre></div><p>There&rsquo;s only one detail missing now: error handling.
 If one of the servers errors out (couldn&rsquo;t bind to addr or load the certificate)
 we want to make sure the other one is imediately stopped, and execution stops.</p>
-<p>Ideally we&rsquo;d get the error from wg.Wait(), but WaitGroup doesn&rsquo;t support that.
+<p>Ideally we&rsquo;d get the error from <em>wg.Wait</em>, but it doesn&rsquo;t support that.
 The answer lies in <a href="https://pkg.go.dev/golang.org/x/sync/errgroup">x/sync/errgroup</a>, which builds upon WaitGroup and does just that, in only 60 lines of code.</p>
 <p>Here&rsquo;s our code with error handling:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">mainServer :<span style="color:#f92672">=</span> NewServer(<span style="color:#e6db74">&#34;:443&#34;</span>, r)
@@ -274,9 +274,9 @@ go func() {
 }()
 
 err :<span style="color:#f92672">=</span> g.Wait() 
-</code></pre></div><p>Note how we distinguish a real error from http.ErrServerClosed.
-We don&rsquo;t want to call the Close() logic for ErrServerClosed because it would interfere with graceful shutdown.</p>
-<p>Our last tweak is more subjective. I dislike the fact that certFile and keyFile are passed
+</code></pre></div><p>Note how we distinguish a real error from <em>http.ErrServerClosed</em>.
+We don&rsquo;t want to call <em>Close</em> for <em>http.ErrServerClosed</em> because it would interfere with graceful shutdown.</p>
+<p>The next tweak is more subjective. I dislike the fact that <em>certFile</em> and <em>keyFile</em> are passed
 when starting the server and not when initializing it. I would prefer having one way to start
 the server regardless of whether it uses TLS or not.</p>
 <p>Let&rsquo;s add a few more helpers to httpx:</p>
