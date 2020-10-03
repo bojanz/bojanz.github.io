@@ -15,7 +15,7 @@
       <guid>https://bojanz.github.io/increasing-http-server-boilerplate-go/</guid>
       <description>One great feature of Go is the built-in http.Server. It allows each app to serve HTTP and HTTPS traffic without having to put a reverse proxy such as Nginx in front of it.
 At a glance the API is simple:
-http.ListenAndServe(&amp;#34;:8080&amp;#34;, h) where h is usually a third party router such as Chi. But as always, the devil is in the details. Handling these details will require some boilerplate, so let&amp;rsquo;s start writing it.</description>
+http.ListenAndServe(&amp;#34;:8080&amp;#34;, h) where h is http.ServeMux or a third party router such as Chi. But as always, the devil is in the details. Handling these details will require some boilerplate, so let&amp;rsquo;s start writing it.</description>
     </item>
     
     <item>

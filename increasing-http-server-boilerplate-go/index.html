@@ -85,7 +85,7 @@
                     <p>One great feature of Go is the built-in http.Server. It allows each app to serve HTTP and HTTPS traffic without having to put a reverse proxy such as Nginx in front of it.</p>
 <p>At a glance the API is simple:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">http.ListenAndServe(<span style="color:#e6db74">&#34;:8080&#34;</span>, h)
-</code></pre></div><p>where <em>h</em> is usually a third party router such as <a href="https://github.com/go-chi/chi">Chi</a>. But as always, the devil is in the details.
+</code></pre></div><p>where <em>h</em> is http.ServeMux or a third party router such as <a href="https://github.com/go-chi/chi">Chi</a>. But as always, the devil is in the details.
 Handling these details will require some boilerplate, so let&rsquo;s start writing it.</p>
 <h3 id="production-ready-configuration-timeouts-tls">Production-ready configuration (timeouts, TLS)</h3>
 <p><a href="https://golang.org/src/net/http/server.go?s=97511:97566#L3108">ListenAndServe</a> creates an http.Server and uses it to listen on the given address and serve the given handler:</p>
