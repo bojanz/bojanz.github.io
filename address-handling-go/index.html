@@ -135,8 +135,7 @@ one, but you&rsquo;d be mistaken. Most software uses CLDR data because it matche
 file via <em>go generate</em>. We&rsquo;re now always one command away from latest data.</p>
 <p>To reduce data size, this package only includes country names in English.
 Translated country names can be fetched on the frontend via <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DisplayNames">Intl.DisplayNames</a>.
-Alternatively, one can plug in <a href="https://pkg.go.dev/golang.org/x/text/language/display">x/text/language/display</a> by setting a custom CountryMapper on the formatter.
-More on that later.</p>
+Alternatively, one can plug in <a href="https://pkg.go.dev/golang.org/x/text/language/display">x/text/language/display</a> by setting a custom CountryMapper on the formatter.</p>
 <h2 id="address-formats">Address formats</h2>
 <p>We&rsquo;re still missing country-specific rules that would allow us to validate and format an address.
 We&rsquo;ll fetch those from Google&rsquo;s <a href="https://chromium-i18n.appspot.com/ssl-address">Address Data Service</a>, generating an AddressFormat struct for each country code.</p>
@@ -167,10 +166,10 @@ risk having the backend and the frontend potentially use different data? The mor
 the backend, maintaining a single source of truth. When the dataset is large, a single GET request can only cary
 a single country&rsquo;s address format, and a new request must be made each time the country changes. This is how
 most widgets relying on Google&rsquo;s address data work, and it&rsquo;s something I wanted to change.</p>
-<p>We provide an <a href="https://github.com/bojanz/address/blob/master/http.go#L12">address.FormatHandler</a> which can be used with any router:</p>
+<p>The package provides a <a href="https://github.com/bojanz/address/blob/master/http.go#L12">handler</a> which can be used with any router:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">r.Get(<span style="color:#e6db74">&#34;/address-formats&#34;</span>, address.FormatHandler)
 </code></pre></div><p>It filters data by the provided locale (query string or header) to reduce the response size by another 20%.
-For example, if the locale is &ldquo;fr&rdquo;, there is no need to return non-latin region names. The result?
+For example, if the locale is &ldquo;fr&rdquo;, there is no need to return non-Latin region names. The result?
 A response size of ~45kb, or <strong>~14kb</strong> if gzip compression is used.</p>
 <p>And that right there is this package&rsquo;s entire raison d&rsquo;etre. Making the entire dataset small enough
 to fit into a singe GET request, making every country change instantaneous.</p>
