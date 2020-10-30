@@ -4,16 +4,21 @@
   
   <url>
     <loc>https://bojanz.github.io/</loc>
-    <lastmod>2020-10-02T00:00:00+00:00</lastmod>
+    <lastmod>2020-10-30T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://bojanz.github.io/increasing-http-server-boilerplate-go/</loc>
-    <lastmod>2020-10-02T00:00:00+00:00</lastmod>
+    <loc>https://bojanz.github.io/address-handling-go/</loc>
+    <lastmod>2020-10-30T00:00:00+00:00</lastmod>
   </url>
   
   <url>
     <loc>https://bojanz.github.io/post/</loc>
+    <lastmod>2020-10-30T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://bojanz.github.io/increasing-http-server-boilerplate-go/</loc>
     <lastmod>2020-10-02T00:00:00+00:00</lastmod>
   </url>
   

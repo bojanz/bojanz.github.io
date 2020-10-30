@@ -6,7 +6,18 @@
     <description>Recent content on bojanz.github.io</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 02 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Fri, 30 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Developing address handling for Go</title>
+      <link>https://bojanz.github.io/address-handling-go/</link>
+      <pubDate>Fri, 30 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://bojanz.github.io/address-handling-go/</guid>
+      <description>Web applications often need to handle postal addresses. We collect them from users, validate and format them, send them to payment and shipping APIs.
+Postal addresses are easy when limited to a single country. But each country has its own rules on which fields are used and required, how they&amp;rsquo;re labeled and validated. A good widget, validator, formatter needs to take these rules into account.
+Google has lead the way in solving this problem, defining and publishing address data on which language-specific solutions can be built.</description>
+    </item>
+    
     <item>
       <title>Increasing http.Server boilerplate</title>
       <link>https://bojanz.github.io/increasing-http-server-boilerplate-go/</link>

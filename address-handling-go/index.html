@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+
+
+ <html class="no-js"> 
+<head>
+    <title>Developing address handling for Go &middot; bojanz.github.io</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="content-language" content="en-us" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="author" content="Bojan Živanović (bojanz)">
+    <meta name="description" content="">
+    <meta name="generator" content="Hugo 0.75.1" />
+
+    
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" type="text/css" href="https://bojanz.github.io/css/main.css" />
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/xcode.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400italic,400,300,700|Avenir:400" rel="stylesheet" type="text/css">
+    
+</head>
+
+<body>
+    
+    <div class="off-canvas">
+    <figure class="avatar">
+        <img src="https://bojanz.github.io/img/avatar.jpg" title="Bojan Živanović (bojanz)">
+    </figure>
+    <div class="bio">
+        
+        <h1>Bojan Živanović</h1>
+        
+        
+        <p>Open Sourcerer. eCommerce nerd. Advisor @<a href="https://centarro.io">Centarro</a></p>
+        
+    </div>
+    <nav>
+
+        
+
+        
+        <h6>Subscribe</h6>
+        
+
+        <ul>
+            <li><a target="_blank" href="https://bojanz.github.io/index.xml">RSS feed</a></li>
+        </ul>
+
+        
+        <h6>Follow me on</h6>
+        
+
+        <ul>
+        
+            <li><a target="_blank" href="//twitter.com/bojan_zivanovic">Twitter</a></li>
+        
+        </ul>
+    </nav>
+</div>
+
+
+    <div class="site-wrapper">
+        <header>
+	<div class="h-wrap">
+		
+		<h1 class="title"><a href="https://bojanz.github.io/">bojanz.github.io</a></h1>
+		
+		<a class="menu-icon" title="Menu"><span class="lines"></span></a>
+	</div>
+</header>
+        
+        <section class="single-wrap">
+            <article class="single-content" itemscope itemtype="//schema.org/BlogPosting">
+                <div class="feat">
+                    <h5 class="page-date">
+                    <time datetime="" itemprop="datePublished">
+                    30. October 2020
+                    </time>
+                    </h5>
+                </div>
+                <h1 class="page-title" itemprop="name headline">Developing address handling for Go</h1>
+                <div itemprop="articleBody">
+                    <p>Web applications often need to handle postal addresses. We collect them from
+users, validate and format them, send them to payment and shipping APIs.</p>
+<p>Postal addresses are easy when limited to a single country. But each country has its
+own rules on which fields are used and required, how they&rsquo;re labeled and validated.
+A good widget, validator, formatter needs to take these rules into account.</p>
+<p>Google has lead the way in solving this problem, defining and publishing
+<a href="https://chromium-i18n.appspot.com/ssl-address">address data</a> on which language-specific
+solutions can be built. Their solution, <a href="https://github.com/google/libaddressinput">libaddressinput</a> for C++ and Java, is used
+by Chrome and Android.</p>
+<p>Five years ago I developed <a href="https://github.com/commerceguys/addressing">commerceguys/addressing</a>, which solved this problem for PHP.
+It has since been downloaded over 4.5 million times and is used by many large applications
+such as Concrete5, Drupal Commerce, Thelia.</p>
+<p>Developing with Go, I ran into the same need again. I started using <a href="https://github.com/Boostport/address">Boostport/address</a>, and for a while all was well.
+I soon ran into the some of the same limitations I encountered while using commerceguys/addressing, the primary
+one being the large size of the dataset, making it difficult to develop a decent JS component. I decided to iterate on the concept
+one more time, re-evaluting old tradeoffs. Let me show you <a href="https://github.com/bojanz/address">bojanz/address</a>.</p>
+<h2 id="address-struct">Address struct</h2>
+<p>Let&rsquo;s start by defining a struct to hold our data.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">type Address <span style="color:#66d9ef">struct</span> {
+	Line1 string
+	Line2 string
+	Line3 string
+	<span style="color:#75715e">// Sublocality is the neighborhood/suburb/district.
+</span><span style="color:#75715e"></span>	Sublocality string
+	<span style="color:#75715e">// Locality is the city/village/post town.
+</span><span style="color:#75715e"></span>	Locality string
+	<span style="color:#75715e">// Region is the state/province/prefecture.
+</span><span style="color:#75715e"></span>	<span style="color:#75715e">// An ISO code is used when available.
+</span><span style="color:#75715e"></span>	Region string
+	<span style="color:#75715e">// PostalCode is the postal/zip/pin code.
+</span><span style="color:#75715e"></span>	PostalCode string
+	<span style="color:#75715e">// CountryCode is the two-letter code as defined by CLDR.
+</span><span style="color:#75715e"></span>	CountryCode string
+}
+</code></pre></div><p>Generic field names such as Locality have a long tradition, going back to OASIS and their <a href="http://www.oasis-open.org/committees/ciq/download.shtml">eXtensible Address Language (xAL)</a> standard from almost two decades ago.
+Brevity is a virtue so we use tweak those names, using Sublocality instead of DependentLocality and Region instead of AdministrativeArea. Both are common alternatives used by Google, <a href="https://schema.org/PostalAddress">Schema.org</a> and others.</p>
+<p>There are three line fields, matching the HTML5 autocomplete spec and many shipping APIs.
+This leaves enough space for specifying an organization and department, house or hotel
+name, and other similar &ldquo;care of&rdquo; use cases. When mapping to an API that only has two address lines,
+Line3 can be appended to Line2, separated by a comma.</p>
+<p>Recipient fields such as FirstName/LastName are not included since they are usually
+present on the parent (Contact/Customer/User) struct. This avoids data duplication, but more importantly,
+it allows the package to avoid tackling name handling. Storing a name requires up to 5 fields
+(title, given_name, additional_name, family_name, suffix), and choosing the tradeoffs in this area
+is the job for another package.</p>
+<h2 id="countries">Countries</h2>
+<p>The next step is to add a country list, giving us available country codes and country names.
+There are two such lists available, one from CLDR and one from ISO. You&rsquo;d think we&rsquo;d want the ISO
+one, but you&rsquo;d be mistaken. Most software uses CLDR data because it matches colloquial usage more closely (e.g. &ldquo;Russia&rdquo; instead of &ldquo;Russian Federation&rdquo;).</p>
+<p>CLDR provides its list in <a href="https://raw.githubusercontent.com/unicode-cldr/cldr-localenames-full/master/main/en/territories.json">JSON format</a>, allowing us to fetch it and generate a countries.go
+file via <em>go generate</em>. We&rsquo;re now always one command away from latest data.</p>
+<p>To reduce data size, this package only includes country names in English.
+Translated country names can be fetched on the frontend via <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DisplayNames">Intl.DisplayNames</a>.
+Alternatively, one can plug in <a href="https://pkg.go.dev/golang.org/x/text/language/display">x/text/language/display</a> by setting a custom CountryMapper on the formatter.
+More on that later.</p>
+<h2 id="address-formats">Address formats</h2>
+<p>We&rsquo;re still missing country-specific rules that would allow us to validate and format an address.
+We&rsquo;ll fetch those from Google&rsquo;s <a href="https://chromium-i18n.appspot.com/ssl-address">Address Data Service</a>, generating an AddressFormat struct for each country code.</p>
+<p>An address format provides the <a href="https://github.com/bojanz/address/blob/master/formats.go#L6">following information</a>:</p>
+<ul>
+<li>Which fields are used, and in which order.</li>
+<li>Which fields are required.</li>
+<li>Labels for the sublocality, locality, region and postal code fields.</li>
+<li>Regular expression pattern for validating postal codes.</li>
+<li>Regions, with local names where relevant (e.g: Okinawa / 沖縄県).</li>
+</ul>
+<p><a href="https://github.com/bojanz/address/blob/master/address.go#L61">Helpers</a> are then provided for validating required fields, regions and postal codes.</p>
+<p>It is tempting to expand gen.go to always generate formats.go from Google, forbidding contributors from modifying the
+included data and directing them to open bug reports <a href="https://github.com/google/libaddressinput/issues">upstream</a>.
+This is the approach commerceguys/addressing took, and over the years over 20 bug reports were accepted and corrected.
+However, bug reports sometimes took years to resolve, frustrating contributors and requiring forks and local overrides.</p>
+<p>This time around, the package owns its dataset. The community is free to send PRs against formats.go, evolving the
+data in a direction of its choosing. We&rsquo;ve already applied a number of fixes against Google&rsquo;s data, applying recent
+ISO updates (e.g. China&rsquo;s new ISO codes). Of course, we&rsquo;ll continue to contribute bug reports against upstream, and
+periodically apply their updates where possible.</p>
+<p>To minimize the size of the dataset, we don&rsquo;t include predefined localities or sublocalities, which Google defines
+for certain countries (Brazil, Chile, China, Hong Kong, Japan, South Korea, Taiwan). This brings the size of formats.go
+down from over a megabyte to ~80kb.</p>
+<h2 id="widget">Widget</h2>
+<p>Implementing an address widget requires us to write JavaScript. When the country changes, we need to re-render
+the other fields based on address format data. But where do we get this data? Do we duplicate it in JS, and
+risk having the backend and the frontend potentially use different data? The more common approach is to fetch it from
+the backend, maintaining a single source of truth. When the dataset is large, a single GET request can only cary
+a single country&rsquo;s address format, and a new request must be made each time the country changes. This is how
+most widgets relying on Google&rsquo;s address data work, and it&rsquo;s something I wanted to change.</p>
+<p>We provide an <a href="https://github.com/bojanz/address/blob/master/http.go#L12">address.FormatHandler</a> which can be used with any router:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">r.Get(<span style="color:#e6db74">&#34;/address-formats&#34;</span>, address.FormatHandler)
+</code></pre></div><p>It filters data by the provided locale (query string or header) to reduce the response size by another 20%.
+For example, if the locale is &ldquo;fr&rdquo;, there is no need to return non-latin region names. The result?
+A response size of ~45kb, or <strong>~14kb</strong> if gzip compression is used.</p>
+<p>And that right there is this package&rsquo;s entire raison d&rsquo;etre. Making the entire dataset small enough
+to fit into a singe GET request, making every country change instantaneous.</p>
+<h2 id="formatter">Formatter</h2>
+<p>Let&rsquo;s end this post with a bit more of code. The address.Formatter displays
+an address as HTML, using the country&rsquo;s address format.</p>
+<p>The country name can be omitted, for the use case where all addresses belong to the same country.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">addr :<span style="color:#f92672">=</span> address.Address{
+    Line1:       <span style="color:#e6db74">&#34;1098 Alta Ave&#34;</span>,
+    Locality:    <span style="color:#e6db74">&#34;Mountain View&#34;</span>,
+    Region:      <span style="color:#e6db74">&#34;CA&#34;</span>,
+    PostalCode:  <span style="color:#e6db74">&#34;94043&#34;</span>,
+    CountryCode: <span style="color:#e6db74">&#34;US&#34;</span>,
+}
+locale :<span style="color:#f92672">=</span> address.NewLocale(<span style="color:#e6db74">&#34;en&#34;</span>)
+formatter :<span style="color:#f92672">=</span> address.NewFormatter(locale)
+output :<span style="color:#f92672">=</span> formatter.Format(addr)
+<span style="color:#75715e">// Output:
+</span><span style="color:#75715e">// &lt;p class=&#34;address&#34; translate=&#34;no&#34;&gt;
+</span><span style="color:#75715e">// &lt;span class=&#34;line1&#34;&gt;1098 Alta Ave&lt;/span&gt;&lt;br&gt;
+</span><span style="color:#75715e">// &lt;span class=&#34;locality&#34;&gt;Mountain View&lt;/span&gt;, &lt;span class=&#34;region&#34;&gt;CA&lt;/span&gt; &lt;span class=&#34;postal-code&#34;&gt;94043&lt;/span&gt;&lt;br&gt;
+</span><span style="color:#75715e">// &lt;span class=&#34;country&#34; data-value=&#34;US&#34;&gt;United States&lt;/span&gt;
+</span><span style="color:#75715e">// &lt;/p&gt;
+</span><span style="color:#75715e"></span>
+addr <span style="color:#f92672">=</span> address.Address{
+    Line1:       <span style="color:#e6db74">&#34;幸福中路&#34;</span>,
+    Sublocality: <span style="color:#e6db74">&#34;新城区&#34;</span>,
+    Locality:    <span style="color:#e6db74">&#34;西安市&#34;</span>,
+    Region:      <span style="color:#e6db74">&#34;SN&#34;</span>,
+    PostalCode:  <span style="color:#e6db74">&#34;710043&#34;</span>,
+    CountryCode: <span style="color:#e6db74">&#34;CN&#34;</span>,
+}
+locale :<span style="color:#f92672">=</span> address.NewLocale(<span style="color:#e6db74">&#34;zh&#34;</span>)
+formatter :<span style="color:#f92672">=</span> address.NewFormatter(locale)
+formatter.NoCountry <span style="color:#f92672">=</span> true
+formatter.WrapperElement <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;div&#34;</span>
+formatter.WrapperClass <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;postal-address&#34;</span>
+output :<span style="color:#f92672">=</span> formatter.Format(addr)
+<span style="color:#75715e">// Output:
+</span><span style="color:#75715e">// &lt;div class=&#34;postal-address&#34; translate=&#34;no&#34;&gt;
+</span><span style="color:#75715e">// &lt;span class=&#34;postal-code&#34;&gt;710043&lt;/span&gt;&lt;br&gt;
+</span><span style="color:#75715e">// &lt;span class=&#34;region&#34;&gt;陕西省&lt;/span&gt;&lt;span class=&#34;locality&#34;&gt;西安市&lt;/span&gt;&lt;span class=&#34;sublocality&#34;&gt;新城区&lt;/span&gt;&lt;br&gt;
+</span><span style="color:#75715e">// &lt;span class=&#34;line1&#34;&gt;幸福中路&lt;/span&gt;
+</span><span style="color:#75715e">// &lt;/div&gt;
+</span></code></pre></div><h2 id="conclusion">Conclusion</h2>
+<p>Addressing is a complex topic, but the resulting implementation doesn&rsquo;t need to be.
+In ~1500 lines of code, and ~85kb of data we tackle many problems, creating a foundation
+that can be built upon. I am excited to see how the community makes use of it.</p>
+
+                </div>
+                <div class="feat share">
+                    <a href="//twitter.com/share" class="popup">
+                        <span class="icon-twitter"></span>
+                    </a>
+                </div>
+                
+                <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "bojanz" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+                
+                
+                    <a rel="prev" href="https://bojanz.github.io/increasing-http-server-boilerplate-go/" id="prev">
+                        &larr; <span class="nav-title nav-title-prev">Older</span>
+                    </a>
+                
+            </article>
+        </section>
+
+        <footer>
+	
+</footer>
+    </div>
+    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://bojanz.github.io/js/main.js"></script>
+
+
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+	(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+	m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+	ga('create', 'UA-16577454-2', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+
+
+<!-- Syntax highlighting -->
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+</body>
+</html>
