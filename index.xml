@@ -6,7 +6,19 @@
     <description>Recent content on bojanz.github.io</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 30 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Fri, 06 Nov 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://bojanz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Go constants and JSON: To iota and back</title>
+      <link>https://bojanz.github.io/go-constants-json-iota/</link>
+      <pubDate>Fri, 06 Nov 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://bojanz.github.io/go-constants-json-iota/</guid>
+      <description>Let&amp;rsquo;s talk constants! Today&amp;rsquo;s use case is bojanz/address.
+Certain field labels vary from country to country. A PostalCode field is usually labelled &amp;ldquo;Postal code&amp;rdquo;, but in the US it is a &amp;ldquo;ZIP code&amp;rdquo;. A Region field might be labelled &amp;ldquo;State&amp;rdquo; or &amp;ldquo;Province&amp;rdquo;, among other options.
+We store country-specific addressing rules in an address.Format struct, which tells us the labels to use. Here&amp;rsquo;s a simplified example:
+type Format struct { Layout string `json:&amp;quot;layout,omitempty&amp;quot;` SublocalityType SublocalityType `json:&amp;quot;sublocality_type,omitempty&amp;quot;` LocalityType LocalityType `json:&amp;quot;locality_type,omitempty&amp;quot;` RegionType RegionType `json:&amp;quot;region_type,omitempty&amp;quot;` PostalCodeType PostalCodeType `json:&amp;quot;postal_code_type,omitempty&amp;quot;` } We want to predefine possible values, communicating to callers which labels they&amp;rsquo;ll need to prepare (and possibly translate).</description>
+    </item>
+    
     <item>
       <title>Developing address handling for Go</title>
       <link>https://bojanz.github.io/address-handling-go/</link>

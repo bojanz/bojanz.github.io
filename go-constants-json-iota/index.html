@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+
+
+ <html class="no-js"> 
+<head>
+    <title>Go constants and JSON: To iota and back &middot; bojanz.github.io</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="content-language" content="en-us" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="author" content="Bojan Živanović (bojanz)">
+    <meta name="description" content="">
+    <meta name="generator" content="Hugo 0.75.1" />
+
+    
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" type="text/css" href="https://bojanz.github.io/css/main.css" />
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/xcode.min.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400italic,400,300,700|Avenir:400" rel="stylesheet" type="text/css">
+    
+</head>
+
+<body>
+    
+    <div class="off-canvas">
+    <figure class="avatar">
+        <img src="https://bojanz.github.io/img/avatar.jpg" title="Bojan Živanović (bojanz)">
+    </figure>
+    <div class="bio">
+        
+        <h1>Bojan Živanović</h1>
+        
+        
+        <p>Open Sourcerer. eCommerce nerd. Advisor @<a href="https://centarro.io">Centarro</a></p>
+        
+    </div>
+    <nav>
+
+        
+
+        
+        <h6>Subscribe</h6>
+        
+
+        <ul>
+            <li><a target="_blank" href="https://bojanz.github.io/index.xml">RSS feed</a></li>
+        </ul>
+
+        
+        <h6>Follow me on</h6>
+        
+
+        <ul>
+        
+            <li><a target="_blank" href="//twitter.com/bojan_zivanovic">Twitter</a></li>
+        
+        </ul>
+    </nav>
+</div>
+
+
+    <div class="site-wrapper">
+        <header>
+	<div class="h-wrap">
+		
+		<h1 class="title"><a href="https://bojanz.github.io/">bojanz.github.io</a></h1>
+		
+		<a class="menu-icon" title="Menu"><span class="lines"></span></a>
+	</div>
+</header>
+        
+        <section class="single-wrap">
+            <article class="single-content" itemscope itemtype="//schema.org/BlogPosting">
+                <div class="feat">
+                    <h5 class="page-date">
+                    <time datetime="" itemprop="datePublished">
+                    6. November 2020
+                    </time>
+                    </h5>
+                </div>
+                <h1 class="page-title" itemprop="name headline">Go constants and JSON: To iota and back</h1>
+                <div itemprop="articleBody">
+                    <p>Let&rsquo;s talk constants! Today&rsquo;s use case is <a href="https://github.com/bojanz/address">bojanz/address</a>.</p>
+<p>Certain field labels vary from country to country. A PostalCode field
+is usually labelled &ldquo;Postal code&rdquo;, but in the US it is a &ldquo;ZIP code&rdquo;.
+A Region field might be labelled &ldquo;State&rdquo; or &ldquo;Province&rdquo;, among other options.</p>
+<p>We store country-specific addressing rules in an address.Format struct, which tells us the labels to use.
+Here&rsquo;s a simplified example:</p>
+<pre><code>type Format struct {
+  Layout            string          `json:&quot;layout,omitempty&quot;`
+  SublocalityType   SublocalityType `json:&quot;sublocality_type,omitempty&quot;`
+  LocalityType      LocalityType    `json:&quot;locality_type,omitempty&quot;`
+  RegionType        RegionType      `json:&quot;region_type,omitempty&quot;`
+  PostalCodeType    PostalCodeType  `json:&quot;postal_code_type,omitempty&quot;`
+}
+</code></pre><p>We want to predefine possible values, communicating to callers which labels they&rsquo;ll
+need to prepare (and possibly translate). We also want these values to take as little memory
+as possible, since there will be around 200 address formats.
+This is a classic enum use case, implemented in Go via sets of constants.</p>
+<p>I usually define constants at the top of the file which uses them, but since there&rsquo;s
+around 30 possible constants here, I will create a <a href="https://github.com/bojanz/address/blob/master/const.go">const.go</a> file and define them there.
+Here are 2 of the 4 types defined:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">type LocalityType uint8
+
+<span style="color:#66d9ef">const</span> (
+	LocalityTypeCity LocalityType <span style="color:#f92672">=</span> iota
+	LocalityTypeDistrict
+	LocalityTypePostTown
+	LocalityTypeSuburb
+)
+
+type PostalCodeType uint8
+
+<span style="color:#66d9ef">const</span> (
+	PostalCodeTypePostal PostalCodeType <span style="color:#f92672">=</span> iota
+	PostalCodeTypeEir
+	PostalCodeTypePin
+	PostalCodeTypeZip
+)
+</code></pre></div><p>Each constant name is prefixed with the type it belongs to. This groups possible
+values together in autocomplete dropdowns and documentation, and prevents
+name collisions (e.g. we have both a SublocalityTypeSuburb and a LocalityTypeSuburb).</p>
+<p>We use a uint8 for minimal memory usage, each value is only 1 byte. The iota
+keyword allows us to assign a numeric value to each constant, starting from 0, without having
+to type out the numbers ourselves. All this has another great benefit: the zero value is
+useful, allowing us to leave out default values:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">var formats <span style="color:#f92672">=</span> map[string]Format{
+	Layout: <span style="color:#e6db74">&#34;%1</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">%2</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">%3</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">%P %L&#34;</span>,
+	<span style="color:#75715e">// We can delete the next lines, they match default/zero values.
+</span><span style="color:#75715e"></span>	LocalityType: LocalityTypeCity,
+	PostalCodeType: PostalCodeTypePostal,
+}
+</code></pre></div><p>And thanks to &ldquo;omitempty&rdquo; in the JSON struct tags, when marshaling the formats
+to JSON (e.g. to power a frontend widget), all zero values will be left out, reducing the size of the payload.</p>
+<p>There&rsquo;s only one problem remaining. Since the types are uint8 under the hood,
+that&rsquo;s how they&rsquo;ll be converted to JSON. A &ldquo;postal_code_type&rdquo; will be &ldquo;3&rdquo; instead
+of &ldquo;zip&rdquo;. This makes it harder for the frontend to understand the data, and it makes the values
+positional, where a new value added before the end would reindex all following values, breaking
+client code.</p>
+<p>The easiest way to fix this is to define MarshalText and UnmarshalText
+methods for our types, converting the values to/from strings when marshalled
+to JSON, XML, and other formats.</p>
+<p>We start by defining a fixed-size array which holds a name for each numeric value:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">type LocalityType uint8
+
+<span style="color:#a6e22e">const</span> (
+	LocalityTypeCity LocalityType <span style="color:#f92672">=</span> iota
+	LocalityTypeDistrict
+	LocalityTypePostTown
+	LocalityTypeSuburb
+)
+
+var localityTypeNames <span style="color:#f92672">=</span> [...]string{<span style="color:#e6db74">&#34;city&#34;</span>, <span style="color:#e6db74">&#34;district&#34;</span>, <span style="color:#e6db74">&#34;post_town&#34;</span>, <span style="color:#e6db74">&#34;suburb&#34;</span>}
+</code></pre></div><p>An array saves us a bit of memory compared to a slice. Note the &ldquo;[&hellip;]&rdquo; trick to avoid specifying a count.
+Now let&rsquo;s use it:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-c" data-lang="c">func (l LocalityType) String() string {
+	<span style="color:#66d9ef">if</span> <span style="color:#66d9ef">int</span>(l) <span style="color:#f92672">&gt;=</span> len(localityTypeNames) {
+		<span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;&#34;</span>
+	}
+	<span style="color:#66d9ef">return</span> localityTypeNames[l]
+}
+
+<span style="color:#75715e">// MarshalText implements the encoding.TextMarshaler interface.
+</span><span style="color:#75715e"></span>func (l LocalityType) MarshalText() ([]byte, error) {
+	<span style="color:#66d9ef">return</span> []byte(l.String()), nil
+}
+
+<span style="color:#75715e">// UnmarshalText implements the encoding.TextUnmarshaler interface.
+</span><span style="color:#75715e"></span>func (l <span style="color:#f92672">*</span>LocalityType) UnmarshalText(b []byte) error {
+	aux :<span style="color:#f92672">=</span> string(b)
+	<span style="color:#66d9ef">for</span> i, name :<span style="color:#f92672">=</span> range localityTypeNames {
+		<span style="color:#66d9ef">if</span> name <span style="color:#f92672">==</span> aux {
+			<span style="color:#f92672">*</span>l <span style="color:#f92672">=</span> LocalityType(i)
+			<span style="color:#66d9ef">return</span> nil
+		}
+	}
+	<span style="color:#66d9ef">return</span> fmt.Errorf(<span style="color:#e6db74">&#34;invalid locality type %q&#34;</span>, aux)
+}
+</code></pre></div><p>At this point some of you might be thinking &ldquo;I could have used <a href="https://godoc.org/golang.org/x/tools/cmd/stringer">Stringer</a>
+to generate these names for me&rdquo;. But that wouldn&rsquo;t solve the problem, since Stringer (as its name says) only generates String()
+methods, leaving MarshalText() and UnmarshalText() unimplemented.</p>
+<p>And there we have it, fast and flexible JSON-ready constants. For bonus points, take a look at
+<a href="https://github.com/bojanz/address/blob/master/const_test.go">const_test.go</a> in the package for matching tests.</p>
+
+                </div>
+                <div class="feat share">
+                    <a href="//twitter.com/share" class="popup">
+                        <span class="icon-twitter"></span>
+                    </a>
+                </div>
+                
+                <div id="disqus_thread"></div>
+<script type="application/javascript">
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "bojanz" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+                
+                
+                    <a rel="prev" href="https://bojanz.github.io/address-handling-go/" id="prev">
+                        &larr; <span class="nav-title nav-title-prev">Older</span>
+                    </a>
+                
+            </article>
+        </section>
+
+        <footer>
+	
+</footer>
+    </div>
+    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://bojanz.github.io/js/main.js"></script>
+
+
+
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+	(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+	m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+	ga('create', 'UA-16577454-2', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+
+
+<!-- Syntax highlighting -->
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+</body>
+</html>
